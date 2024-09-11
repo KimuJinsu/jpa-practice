@@ -77,22 +77,31 @@ public class Main {
 		   return member;
 		  }
 
-		  private static Member find(final EntityManager em, final Long id) {
+	  private static Member find(final EntityManager em, final Long id) {
+		    // EntityManager를 사용하여 주어진 id로 Member 엔티티를 데이터베이스에서 조회.
+		    // em.find()는 영속성 컨텍스트(1차 캐시)에서 먼저 찾고, 없으면 데이터베이스에서 조회.
 		    return em.find(Member.class, id);
-		  }
+		}
 
-		  private static List findList(final EntityManager em, final String query) {
+		private static List findList(final EntityManager em, final String query) {
+		    // JPQL(Java Persistence Query Language) 쿼리를 사용하여 Member 엔티티 목록을 조회.
+		    // em.createQuery()는 주어진 JPQL 쿼리를 실행하고, getResultList()로 결과를 리스트 형태로 반환.
+		    // 쿼리는 Member.class 타입에 맞추어 실행됨.
 		    return (List) em.createQuery(query, Member.class).getResultList();
-		  }
+		}
 
-		  private static void update(final EntityManager em, final Long id, final Integer age) {
+		private static void update(final EntityManager em, final Long id, final Integer age) {
+		    // 주어진 id로 Member 엔티티를 조회한 후, 해당 엔티티의 나이(age) 필드를 업데이트.
+		    // em.find()로 영속 상태의 엔티티를 조회하고, setter로 값을 변경하면 트랜잭션이 커밋될 때 데이터베이스에 반영됨.
 		    Member member1 = em.find(Member.class, id);
-		    member1.setAge(age);
-		  }
+		    member1.setAge(age); // 나이 값을 변경.
+		}
 
-		  private static void delete(final EntityManager em, final Long id) {
+		private static void delete(final EntityManager em, final Long id) {
+		    // 주어진 id로 Member 엔티티를 조회한 후, 데이터베이스에서 해당 엔티티를 삭제.
+		    // em.find()로 영속성 컨텍스트에서 엔티티를 찾은 뒤, em.remove()로 해당 엔티티를 제거.
+		    // em.remove()는 영속성 컨텍스트에서 엔티티를 삭제하고, 트랜잭션 커밋 시 데이터베이스에서 삭제됨.
 		    Member member = em.find(Member.class, id);
-		    if (member != null) em.remove(member);
-		  }
-
+		    if (member != null) em.remove(member); // 엔티티가 존재할 경우에만 삭제.
+		}
 }
