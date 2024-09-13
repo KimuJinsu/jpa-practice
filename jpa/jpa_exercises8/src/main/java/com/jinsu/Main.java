@@ -6,6 +6,8 @@ import javax.persistence.EntityManagerFactory;
 import javax.persistence.EntityTransaction;
 import javax.persistence.Persistence;
 
+import com.jinsu.entity.Member;
+
 public class Main {
 
 	  public static void main(String... args) throws InterruptedException {

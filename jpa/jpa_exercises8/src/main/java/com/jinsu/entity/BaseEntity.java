@@ -6,7 +6,7 @@ import javax.persistence.*;
 
 import org.hibernate.annotations.CreationTimestamp;
 
-@Entity
+//@Entity
 @MappedSuperclass
 public class BaseEntity {
 	
