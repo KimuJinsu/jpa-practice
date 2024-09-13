@@ -10,6 +10,7 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinTable;
 import javax.persistence.ManyToMany;
+import javax.persistence.OneToMany;
 import javax.persistence.JoinColumn;
 
 @Entity
@@ -22,11 +23,8 @@ public class Member {
 	
 	private String name;
 	
-	@ManyToMany
-	@JoinTable(name="MEMBER_PRODUCT",
-					joinColumns=@JoinColumn(name="MEMBER_ID"),
-					inverseJoinColumns=@JoinColumn(name="PRODUCT_ID")) 
-	private List<Product> products = new ArrayList<>();
+	@OneToMany(mappedBy="member")
+	private List<MemberProduct> memberProducts = new ArrayList<>();
 
 	public Long getId() {
 		return id;
@@ -44,15 +42,13 @@ public class Member {
 		this.name = name;
 	}
 
-	public List<Product> getProducts() {
-		return products;
+	public List<MemberProduct> getMemberProducts() {
+		return memberProducts;
 	}
 
-	public void setProducts(List<Product> products) {
-		this.products = products;
+	public void setMemberProducts(List<MemberProduct> memberProducts) {
+		this.memberProducts = memberProducts;
 	}
-	
-	
 	
 
 }

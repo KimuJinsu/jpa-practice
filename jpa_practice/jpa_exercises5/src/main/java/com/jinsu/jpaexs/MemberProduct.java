@@ -1,61 +1,53 @@
 package com.jinsu.jpaexs;
 
 import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.IdClass;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
+import javax.persistence.Entity;
 
 @Entity
+@IdClass(MemberProductId.class)  // 복합키 클래스 지정
 public class MemberProduct {
-	
-	@Id
-	@GeneratedValue(strategy=GenerationType.IDENTITY)
-	private Long id;
-	
-	@ManyToOne
-	@JoinColumn(name="MEMBER_ID")
-	private Member member;
-	
-	
-	@ManyToOne
-	@JoinColumn(name="PRODUCT_ID")
-	private Product product;
-	
-	private int orderAmound;
 
-	public Long getId() {
-		return id;
-	}
+    @Id
+    @ManyToOne
+    @JoinColumn(name = "MEMBER_ID")
+    private Member member;
 
-	public void setId(Long id) {
-		this.id = id;
-	}
+    @Id
+    @ManyToOne
+    @JoinColumn(name = "PRODUCT_ID")
+    private Product product;
 
-	public Member getMember() {
-		return member;
-	}
+    private int orderAmound;
 
-	public void setMember(Member member) {
-		this.member = member;
-	}
+    // 기본 생성자
+    public MemberProduct() {}
 
-	public Product getProduct() {
-		return product;
-	}
+    // getter, setter
+    public Member getMember() {
+        return member;
+    }
 
-	public void setProduct(Product product) {
-		this.product = product;
-	}
+    public void setMember(Member member) {
+        this.member = member;
+    }
 
-	public int getOrderAmound() {
-		return orderAmound;
-	}
+    public Product getProduct() {
+        return product;
+    }
 
-	public void setOrderAmound(int orderAmound) {
-		this.orderAmound = orderAmound;
-	}
-	
-	
+    public void setProduct(Product product) {
+        this.product = product;
+    }
+
+    public int getOrderAmound() {
+        return orderAmound;
+    }
+
+    public void setOrderAmound(int orderAmound) {
+        this.orderAmound = orderAmound;
+    }
 }

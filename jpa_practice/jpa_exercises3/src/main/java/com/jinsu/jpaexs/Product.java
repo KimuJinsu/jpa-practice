@@ -1,6 +1,5 @@
 package com.jinsu.jpaexs;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import javax.persistence.Column;
@@ -20,9 +19,8 @@ public class Product {
 	
 	private String name;
 	
-	@ManyToMany(mappedBy="product")
-	private List<MemberProduct> memberProducts = new ArrayList<>();
-	
+	@ManyToMany(mappedBy="products")
+	private List<Member> member;
 
 	public Long getId() {
 		return id;
@@ -40,14 +38,14 @@ public class Product {
 		this.name = name;
 	}
 
-	public List<MemberProduct> getMemberProducts() {
-		return memberProducts;
+	public List<Member> getMember() {
+		return member;
 	}
 
-	public void setMemberProducts(List<MemberProduct> memberProducts) {
-		this.memberProducts = memberProducts;
+	public void setMember(List<Member> member) {
+		this.member = member;
 	}
-
-
+	
+	
 
 }
