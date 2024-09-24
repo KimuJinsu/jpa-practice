@@ -1,21 +1,21 @@
 package com.jinsu;
 
+import java.sql.SQLOutput;
 import java.util.List;
-import javax.persistence.EntityManager;
-import javax.persistence.EntityManagerFactory;
-import javax.persistence.EntityTransaction;
-import javax.persistence.Persistence;
-import javax.persistence.Query;
-import javax.persistence.TypedQuery;
+import javax.persistence.*;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Root;
 
+import com.jinsu.entity.Post;
+import com.querydsl.core.Tuple;
 import com.jinsu.entity.Member;
 import com.jinsu.entity.Team;
 import com.jinsu.entity.UserDTO;
 import com.jinsu.qentity.QMember;
+import com.jinsu.qentity.QTeam;
 import com.jinsu.utilities.JpaBooks;
+import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 
 public class Main {
@@ -24,27 +24,51 @@ public class Main {
 
     static final int MEMBER_NUMBERS = 100;
 
+    static final int POST_NUMBERS = 10;
+    static final int COMMENT_NUMBERS = 10;
+
+    static final long POST_STRING_MAX_SIZE = 1500L;
+
+    static final long COMMENT_STRING_MAX_SIZE = 300L;
+
     private static EntityManagerFactory emf =
             Persistence.createEntityManagerFactory("jpabook");
 
     public static void main(String... args) throws InterruptedException {
 
-//
+
 //        List<Long> membersIds = JpaBooks.initMemberTeamSampleData(emf,
 //                TEAM_NUMBERS,
 //                MEMBER_NUMBERS);
 
-//            useUserDTO();
-//		testCrossJoin();
-//		testAggregateFunction();
-//		testGroupbyHavingOrderby();
-//		setSubQueryInSelect();
-//		testSubQueryInWhere();
-//		testSubQueryInFromAlternate();
-        testQueryDSLInsert();
+//        List<Long> postIds = JpaBooks.initPostCommentSampleData(emf,
+//                 POST_NUMBERS,
+//                POST_STRING_MAX_SIZE,
+//                COMMENT_NUMBERS,
+//                COMMENT_STRING_MAX_SIZE);
+        // 1페이지, 한 번에 10개씩 가져오기
+        EntityManager em = emf.createEntityManager();
+        getPagedPosts(em, 1, 10);
 
-
+        em.close();
         emf.close();
+        emf.close();
+    }
+    public static void getPagedPosts(EntityManager em, int pageNumber, int pageSize) {
+        // JPQL 쿼리 작성
+        TypedQuery<Post> query = em.createQuery("SELECT p FROM Post p ORDER BY p.title ASC", Post.class);
+
+        // 페이징 처리 (첫 번째 결과와 가져올 최대 개수 설정)
+        query.setFirstResult((pageNumber - 1) * pageSize);  // 시작 인덱스 설정
+        query.setMaxResults(pageSize);  // 한 번에 가져올 결과 개수 설정
+
+        // 결과 리스트 조회
+        List<Post> postList = query.getResultList();
+
+        // 결과 출력
+        for (Post post : postList) {
+            System.out.println("Post ID: " + post.getId() + ", Title: " + post.getTitle());
+        }
     }
 
 
@@ -492,6 +516,7 @@ public class Main {
             em.close();  // EntityManager 닫기
         }
     }
+
     public static void testQueryDSLSelect() {
         EntityManager em = emf.createEntityManager();
         JPAQueryFactory queryFactory = new JPAQueryFactory(em);
@@ -510,7 +535,7 @@ public class Main {
 
             QMember qMember = QMember.member;
             List<Member> memberList = queryFactory
-                    .select(qMember)
+                    .selectFrom(qMember)  // selectFrom으로 변경
                     .where(qMember.id.eq(member.getId()))
                     .fetch();
 
@@ -541,7 +566,7 @@ public class Main {
 
             Member member = new Member();
             member.setName("1stQueryDSLInsert");
-            member.setAge(30);
+            member.setAge(40);
 
             em.persist(member);  // 데이터 저장
 
@@ -632,4 +657,361 @@ public class Main {
             }
         }
     }
+
+    public static void testQueryDSLTeamMember() {
+        EntityManager em = emf.createEntityManager();  // EntityManagerFactory에서 EntityManager 생성
+        JPAQueryFactory queryFactory = new JPAQueryFactory(em);  // JPAQueryFactory 생성
+        EntityTransaction tx = em.getTransaction();  // 트랜잭션 가져오기
+
+        try {
+            tx.begin();  // 트랜잭션 시작
+
+            QTeam team = QTeam.team;  // QTeam 객체 생성
+            QMember member = QMember.member;  // QMember 객체 생성
+
+            // JPAQueryFactory를 사용하여 쿼리 작성
+            // QUeryDSL에서 정의한 클래스.
+            // 파이썬에서 Tuple을 지원함: List이다. but 불변객체(immutable)
+            List<Tuple> result = queryFactory
+                    .select(team.name, member.age.avg())
+                    .from(team)
+                    .join(team.memberList, member)  // 팀과 멤버의 관계를 조인
+                    .groupBy(team.name)
+                    .having(member.age.avg().goe(30))  // 평균 나이가 30 이상인 팀
+                    .orderBy(member.age.avg().desc())  // 평균 나이가 높은 순으로 정렬
+                    .fetch();
+
+            // 결과 출력
+            for (Tuple tuple : result) {
+                String teamName = tuple.get(team.name);
+                Double avgAge = tuple.get(member.age.avg());
+                System.out.println("Team: " + teamName + ", Avg Age: " + avgAge);
+            }
+
+            tx.commit();  // 트랜잭션 커밋
+        } catch (Exception e) {
+            e.printStackTrace();
+            if (tx.isActive()) {
+                tx.rollback();  // 에러 발생 시 롤백
+            }
+        } finally {
+            if (em.isOpen()) {
+                em.close();  // EntityManager 닫기
+            }
+        }
+    }
+
+    public static void testPagingAPIByJPQL() {
+        EntityManager em = emf.createEntityManager();  // EntityManagerFactory에서 EntityManager 생성
+        EntityTransaction tx = em.getTransaction();  // 트랜잭션 가져오기
+
+        try {
+            tx.begin();  // 트랜잭션 시작
+
+            TypedQuery<Member> query =
+                    em.createQuery("SELECT m FROM Member m ORDER BY m.name DESC", Member.class)
+                            .setFirstResult(10)
+                            .setMaxResults(20);
+            List<Member> memberList = query.getResultList();
+            for (Member member : memberList) {
+                System.out.println("member = " + member.getId());
+            }
+
+
+            tx.commit();  // 트랜잭션 커밋
+        } catch (Exception e) {
+            e.printStackTrace();
+            if (tx.isActive()) {
+                tx.rollback();  // 에러 발생 시 롤백
+            }
+        } finally {
+            if (em.isOpen()) {
+                em.close();  // EntityManager 닫기
+
+            }
+        }
+    }
+
+    public static void initMemberTeamSampleData() {
+        EntityManager em = emf.createEntityManager();
+        // 트랜잭션 시작
+
+        EntityTransaction tx = em.getTransaction();
+        try {
+            tx.begin();
+
+            // 팀 생성 및 저장
+            Team team = new Team();
+            team.setName("Development Team");
+            em.persist(team);  // 팀을 먼저 저장
+
+            // 멤버 생성 및 팀 설정 후 저장
+            Member member = new Member();
+            member.setName("John Doe");
+            member.setAge(30);
+            member.setTeam(team);  // 팀을 참조
+            em.persist(member);  // 멤버 저장
+
+            tx.commit();  // 트랜잭션 커밋
+        } catch (Exception e) {
+            e.printStackTrace();
+            if (tx.isActive()) {
+                tx.rollback();  // 오류 발생 시 롤백
+            }
+        }
+    }
+
+    public static void testQueryDSLTeamMember1() {
+        EntityManager em = emf.createEntityManager();  // EntityManagerFactory에서 EntityManager 생성
+        JPAQueryFactory queryFactory = new JPAQueryFactory(em);  // JPAQueryFactory 생성
+        EntityTransaction tx = em.getTransaction();  // 트랜잭션 가져오기
+
+        try {
+            tx.begin();  // 트랜잭션 시작
+
+            QTeam team = QTeam.team;  // QTeam 객체 생성
+            QMember member = QMember.member;  // QMember 객체 생성
+
+            // JPAQueryFactory를 사용하여 쿼리 작성
+            // QUeryDSL에서 정의한 클래스.
+            // 파이썬에서 Tuple을 지원함: List이다. but 불변객체(immutable)
+            List<Member> memberList = queryFactory
+                    .selectFrom(member)
+                    .orderBy(member.id.asc())
+                    .offset(0)
+                    .limit(20)
+                    .fetch();
+
+            for (Member mem : memberList) {
+                System.out.println("member = " + mem.getId());
+
+            }
+
+            tx.commit();  // 트랜잭션 커밋
+        } catch (Exception e) {
+            e.printStackTrace();
+            if (tx.isActive()) {
+                tx.rollback();  // 에러 발생 시 롤백
+            }
+        } finally {
+            if (em.isOpen()) {
+                em.close();  // EntityManager 닫기
+            }
+        }
+    }
+
+    public static Long getLastIdofMember() {
+        EntityManager em = emf.createEntityManager();
+        JPAQueryFactory queryFactory = new JPAQueryFactory(em);
+        EntityTransaction tx = em.getTransaction();
+
+        Long lastMemberId = -1L;
+        try {
+            tx.begin();
+
+
+            QMember member = QMember.member;
+            lastMemberId = queryFactory
+                    .select(member.id)
+                    .from(member)
+                    .orderBy(member.id.desc())
+                    .limit(1)
+                    .fetchOne();
+
+
+            tx.commit();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            tx.rollback();
+        } finally {
+            em.close();
+        }
+
+        return lastMemberId;
+    }
+
+    public static Long getPagedMembers(Long lastMemberId, int limit) {
+        EntityManager em = emf.createEntityManager();
+        JPAQueryFactory queryFactory = new JPAQueryFactory(em);
+        EntityTransaction tx = em.getTransaction();
+        List<Member> members = null;
+
+        try {
+            tx.begin();
+
+            QMember member = QMember.member;
+
+            if (lastMemberId == null) {
+                members = queryFactory
+                        .selectFrom(member)
+                        .orderBy(member.id.asc())
+                        .limit(limit)
+                        .fetch();
+            } else {
+                members = queryFactory
+                        .selectFrom(member)
+                        .where(member.id.gt(lastMemberId))
+                        .orderBy(member.id.asc())
+                        .limit(limit)
+                        .fetch();
+            }
+
+            for (Member m : members) {
+                System.out.println(m);
+            }
+
+            tx.commit();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            tx.rollback();
+        } finally {
+            em.close();
+        }
+
+        if (members != null) {
+            if (!members.isEmpty()) {
+                // members.size() - 1는 members 리스트의 마지막 엘리먼트 인덱스 값
+                return members.get(members.size() - 1).getId();
+            } else {
+                return null;
+            }
+        } else {
+            return null;
+        }
+    }
+
+    public static void testPaginaAPIWithoutOffsetByQueryDsl() {
+        Long queryedLastMemberId = getLastIdofMember();
+
+        int pageSize = 20;
+
+        // 총 페이지 수
+        int totalPages = (MEMBER_NUMBERS + pageSize - 1) / pageSize; // 올림 계산
+
+        Long lastMemberId = null;  // 첫 페이지의 페이징을 위한 코드...
+
+        for (int currentPage = 1; currentPage <= totalPages; currentPage++) {
+            System.out.println("Page " + currentPage + ":");
+
+            lastMemberId = getPagedMembers(lastMemberId, pageSize);
+
+            if( queryedLastMemberId == lastMemberId){
+                System.out.println(("Okay"));
+            }
+
+//            if (currentPage == 1) {
+//                System.out.println("queryedLastMemberId: " + queryedLastMemberId);
+//                System.out.println("lastMemberId (after first page): " + lastMemberId);
+//
+//                if (queryedLastMemberId.equals(lastMemberId)) {
+//                    System.out.println("lastMemberId and queryedLastMemberId are identical.");
+//                } else {
+//                    System.out.println("lastMemberId and queryedLastMemberId are different.");
+//                }
+//            }
+        }
+    }
+    public static void testFetchJoinByJPQL(){
+        EntityManager em = emf.createEntityManager();
+        EntityTransaction tx = em.getTransaction();
+        try {
+            tx.begin();
+
+            List<Member> memberList =
+                        em.createQuery("SELECT m from Member m join fetch m.team", Member.class)
+                                    .getResultList();
+            for(Member m : memberList){
+                Team team = m.getTeam();
+                System.out.println("Member name=" + m.getName() + ", team id=" + m.getId() + ", name=" + team.getName());
+            }
+            tx.commit();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            tx.rollback();
+        } finally {
+            em.close();
+        }
+    }
+    public static void testFetchJoinByQueryDsl(){
+        EntityManager em = emf.createEntityManager();
+        JPAQueryFactory queryFactory = new JPAQueryFactory(em);
+        EntityTransaction tx = em.getTransaction();
+        try {
+            tx.begin();
+            QMember member = QMember.member;
+            QTeam team = QTeam.team;
+
+            List<Member> memberList = queryFactory
+                    .selectFrom(member)
+                            .join(member.team, team).fetchJoin()
+                            .fetch();
+
+
+
+            for(Member m : memberList){
+                Team t = m.getTeam();
+                System.out.println("Member name=" + m.getName() + ", team id=" + t.getId() + ", name=" + t.getName());
+            }
+
+            tx.commit();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            tx.rollback();
+        } finally {
+            em.close();
+        }
+    }
+    public static void testCollectionFetchJoin(){
+        EntityManager em = emf.createEntityManager();
+        EntityTransaction tx = em.getTransaction();
+
+        String nameParamet = "team2";
+        try {
+            tx.begin();
+
+//            List<Team> teams = em.createQuery("select t from Team t join fetch t.memberList", Team.class)
+//                            .getResultList();
+//
+//            for(Team t : teams) {
+//                System.out.printf("Team id:%d", t.getId());
+//                for (Member m : t.getMemberList()){
+//                    System.out.printf("Member id:%d, Team name:%s \n", m.getId(), m.getTeam()) ;
+            // One : Team
+            // Many : Member
+            // OneToMany join : 중복된 결과값이 발생함!!!
+//            List<Team> teams = em.createQuery("select t from Team t join fetch t.memberList where t.name = :name",
+//                            Team.class)
+//                    .setParameter("name", nameParamet)
+//                    .getResultList();
+
+            List<Team> teams = em.createQuery("select distinct t from Team t join fetch t.memberList where t.name = :name",
+                            Team.class)
+                    .setParameter("name", nameParamet)
+                    .getResultList();
+
+            for(Team t : teams) {
+                System.out.printf("Team id:%d", t.getId());
+                for (Member m : t.getMemberList()){
+                    System.out.printf("Member id:%d, Team name:%s \n", m.getId(), m.getTeam()) ;
+
+                }
+            }
+
+            tx.commit();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            tx.rollback();
+        } finally {
+            em.close();
+        }
+
+    }
 }
+
+
+
